@@ -100,7 +100,7 @@ class UnpublishedListing extends React.Component {
                       className="nc-unpublishedListing-cardTitle"
                     />
                     <CardText>
-                      Last updated: {timeStamp} by {entry.getIn(['metaData', 'user'])}
+                      Stav Last updated: {timeStamp} by {entry.getIn(['metaData', 'user'])}
                     </CardText>
                     <CardActions>
                       <Link to={link}>
