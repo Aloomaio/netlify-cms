@@ -373,6 +373,33 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "aquibm",
+      "name": "Aquib Master",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/2936813?v=4",
+      "profile": "http://aquibm.com/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Jinksi",
+      "name": "Eric Jinks",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/3147296?v=4",
+      "profile": "http://ericjinks.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "talves",
+      "name": "Tony Alves",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/784848?v=4",
+      "profile": "https://github.com/talves",
+      "contributions": [
+        "code"
+      ]
     }
   ]
 }

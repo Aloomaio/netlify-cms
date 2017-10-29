@@ -38,9 +38,11 @@ export default class ControlPane extends Component {
         <label className="help" htmlFor={fieldName}>{field.get('help')}</label>
         <ul className="nc-controlPane-errors">
           {
-            errors && errors.map(error => (
-              typeof error === 'string' && <li key={error.trim().replace(/[^a-z0-9]+/gi, '-')}>{error}</li>
-            ))
+            errors && errors.map(error =>
+              error.message &&
+              typeof error.message === 'string' &&
+              <li key={error.message.trim().replace(/[^a-z0-9]+/gi, '-')}>{error.message}</li>
+            )
           }
         </ul>
         <ControlHOC 
