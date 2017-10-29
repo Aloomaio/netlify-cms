@@ -79,6 +79,7 @@ class UnpublishedListing extends React.Component {
             const ownStatus = entry.getIn(['metaData', 'status']);
             const collection = entry.getIn(['metaData', 'collection']);
             const isModification = entry.get('isModification');
+            const stageingURL = `https://alooma-staging-pr-${ entry.getIn(['metaData', 'pr','number']) }.herokuapp.com/${ entry.getIn(['metaData', 'collection']) }/${ entry.get('slug')}`;
             return (
               <DragSource
                 namespace={DNDNamespace}
@@ -100,9 +101,12 @@ class UnpublishedListing extends React.Component {
                       className="nc-unpublishedListing-cardTitle"
                     />
                     <CardText>
-                      Stav Last updated: {timeStamp} by {entry.getIn(['metaData', 'user'])}
+                      Last updated: {timeStamp} by {entry.getIn(['metaData', 'user'])}
                     </CardText>
                     <CardActions>
+                      <a target="_blank" href={stageingURL}>
+                        <Button>Staging</Button>
+                      </a>
                       <Link to={link}>
                         <Button>Edit</Button>
                       </Link>

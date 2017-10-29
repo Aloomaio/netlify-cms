@@ -35,6 +35,7 @@ export default class ControlPane extends Component {
     return (
       <div className="nc-controlPane-control">
         <label className={labelClass} htmlFor={fieldName}>{field.get('label')}</label>
+        <label className="help" htmlFor={fieldName}>{field.get('help')}</label>
         <ul className="nc-controlPane-errors">
           {
             errors && errors.map(error => (

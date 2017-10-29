@@ -33,6 +33,12 @@
 @import "./containers/CollectionPage.css";
 @import "./containers/Sidebar.css";
 
+.help{
+  font-size: 12px;
+  color: #999;
+  line-height: 20px;
+}
+
 html {
   box-sizing: border-box;
   -ms-text-size-adjust: 100%;

@@ -40,6 +40,7 @@ export default class EntryListing extends React.Component {
     const label = entry.get('label');
     const title = label || entry.getIn(['data', inferedFields.titleField]);
     let image = entry.getIn(['data', inferedFields.imageField]);
+    let isIndex = (entry.get('slug') === 'index')
     image = resolvePath(image, publicFolder);
     if(image) {
       image = encodeURI(image);
@@ -54,7 +55,12 @@ export default class EntryListing extends React.Component {
         { image &&
         <header className="nc-entryListing-cardImage" style={{ backgroundImage: `url(${ image })` }} />
         }
+        { isIndex &&
+        <h1>OVERVIEW</h1>
+        }
+        { !isIndex &&
         <h1>{title}</h1>
+        }
         {inferedFields.descriptionField ?
           <p>{entry.getIn(['data', inferedFields.descriptionField])}</p>
           : inferedFields.remainingFields && inferedFields.remainingFields.map(f => (

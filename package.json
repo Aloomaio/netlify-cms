@@ -1,6 +1,6 @@
 {
-  "name": "netlify-cms",
-  "version": "0.5.1",
+  "name": "alooma-netlify-cms",
+  "version": "0.5.3",
   "description": "Netlify CMS lets content editors work on structured content stored in git",
   "main": "dist/cms.js",
   "scripts": {
@@ -86,7 +86,7 @@
     "babel-preset-stage-1": "^6.22.0",
     "babel-runtime": "^6.23.0",
     "caniuse-lite": "^1.0.30000745",
-    "cross-env": "^5.0.2",
+    "cross-env": "^5.1.0",
     "css-loader": "^0.28.7",
     "cssnano": "^v4.0.0-rc.2",
     "deep-equal": "^1.0.1",
@@ -116,7 +116,7 @@
     "stylelint-declaration-block-order": "^0.1.0",
     "stylelint-declaration-use-variable": "^1.6.0",
     "url-loader": "^0.5.9",
-    "webpack": "^3.6.0",
+    "webpack": "^3.8.1",
     "webpack-dev-server": "^2.9.1",
     "webpack-merge": "^4.1.0",
     "webpack-postcss-tools": "^1.1.1"
