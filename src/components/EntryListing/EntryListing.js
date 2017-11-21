@@ -31,13 +31,14 @@ export default class EntryListing extends React.Component {
     const imageField = selectInferedField(collection, 'image');
     const fields = selectFields(collection);
     const inferedFields = [titleField, descriptionField, imageField];
-    const remainingFields = fields && fields.filter(f => inferedFields.indexOf(f.get('name')) === -1);
+    const remainingFields = fields && fields.filter(f => inferedFields.indexOf(f.get('name')) === -1 && f.get('showOnCard') === "true");
     return { titleField, descriptionField, imageField, remainingFields };
   }
 
   renderCard(collection, entry, inferedFields, publicFolder) {
     const path = `/collections/${ collection.get('name') }/entries/${ entry.get('slug') }`;
     const label = entry.get('label');
+    const hideFromCard = entry.get('hideFromCard');
     const title = label || entry.getIn(['data', inferedFields.titleField]);
     let image = entry.getIn(['data', inferedFields.imageField]);
     let isIndex = (entry.get('slug') === 'index')
@@ -65,8 +66,8 @@ export default class EntryListing extends React.Component {
           <p>{entry.getIn(['data', inferedFields.descriptionField])}</p>
           : inferedFields.remainingFields && inferedFields.remainingFields.map(f => (
             <p key={f.get('name')} className="nc-entryListing-cardList">
-              <span className="nc-entryListing-cardListLabel">{f.get('label')}:</span>{' '}
-              { (entry.getIn(['data', f.get('name')]) || '').toString() }
+                <span className="nc-entryListing-cardListLabel">{f.get('label')}:</span>{' '}
+                { (entry.getIn(['data', f.get('name')]) || '').toString() }
             </p>
           ))
         }
