@@ -3,7 +3,8 @@ import TestRepoBackend from "./test-repo/implementation";
 import GitHubBackend from "./github/implementation";
 import GitGatewayBackend from "./git-gateway/implementation";
 import { resolveFormat } from "../formats/formats";
-import { selectListMethod, selectEntrySlug, selectEntryPath, selectAllowNewEntries, selectFolderEntryExtension } from "../reducers/collections";
+import { selectIntegration } from '../reducers/integrations';
+import { selectListMethod, selectEntrySlug, selectEntryPath, selectAllowNewEntries, selectAllowDeletion, selectFolderEntryExtension } from "../reducers/collections";
 import { createEntry } from "../valueObjects/Entry";
 import { sanitizeSlug } from "../lib/urlHelper";
 
@@ -148,6 +149,10 @@ class Backend {
     );
   }
 
+  getMedia() {
+    return this.implementation.getMedia();
+  }
+
   entryWithFormat(collectionOrEntity) {
     return (entry) => {
       const format = resolveFormat(collectionOrEntity, entry);
@@ -160,8 +165,8 @@ class Backend {
     };
   }
 
-  unpublishedEntries(page, perPage) {
-    return this.implementation.unpublishedEntries(page, perPage)
+  unpublishedEntries(collections) {
+    return this.implementation.unpublishedEntries()
     .then(loadedEntries => loadedEntries.filter(entry => entry !== null))
     .then(entries => (
       entries.map((loadedEntry) => {
@@ -180,7 +185,10 @@ class Backend {
     ))
     .then(entries => ({
       pagination: 0,
-      entries: entries.map(this.entryWithFormat("editorialWorkflow")),
+      entries: entries.map(entry => {
+        const collection = collections.get(entry.collection);
+        return this.entryWithFormat(collection)(entry);
+      }),
     }));
   }
 
@@ -201,7 +209,7 @@ class Backend {
     .then(this.entryWithFormat(collection, slug));
   }
 
-  persistEntry(config, collection, entryDraft, MediaFiles, options) {
+  persistEntry(config, collection, entryDraft, MediaFiles, integrations, options = {}) {
     const newEntry = entryDraft.getIn(["entry", "newRecord"]) || false;
 
     const parsedData = {
@@ -239,19 +247,42 @@ class Backend {
 
     const collectionName = collection.get("name");
 
+    /**
+     * Determine whether an asset store integration is in use.
+     */
+    const hasAssetStore = integrations && !!selectIntegration(integrations, null, 'assetStore');
+    const updatedOptions = { ...options, hasAssetStore };
+
     return this.implementation.persistEntry(entryObj, MediaFiles, {
-      newEntry, parsedData, commitMessage, collectionName, mode, ...options,
+      newEntry, parsedData, commitMessage, collectionName, mode, ...updatedOptions,
     });
+  }
+
+  persistMedia(file) {
+    const options = {
+      commitMessage: `Upload ${file.path}`,
+    };
+    return this.implementation.persistMedia(file, options);
   }
 
   deleteEntry(config, collection, slug) {
     const path = selectEntryPath(collection, slug);
+
+    if (!selectAllowDeletion(collection)) {
+      throw (new Error("Not allowed to delete entries in this collection"));
+    }
+
     const commitMessage = `Delete ${ collection.get('label') } “${ slug }”`;
     return this.implementation.deleteFile(path, commitMessage);
   }
 
-  persistUnpublishedEntry(config, collection, entryDraft, MediaFiles) {
-    return this.persistEntry(config, collection, entryDraft, MediaFiles, { unpublished: true });
+  deleteMedia(path) {
+    const commitMessage = `Delete ${path}`;
+    return this.implementation.deleteFile(path, commitMessage);
+  }
+
+  persistUnpublishedEntry(...args) {
+    return this.persistEntry(...args, { unpublished: true });
   }
 
   updateUnpublishedEntryStatus(collection, slug, newStatus) {

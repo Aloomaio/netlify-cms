@@ -400,6 +400,24 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "ebello",
+      "name": "Ernie Bello",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/782?v=4",
+      "profile": "http://ern.me",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "ackushiw",
+      "name": "Alexander Kushi-Willis",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/6202476?v=4",
+      "profile": "https://ackushiw.com",
+      "contributions": [
+        "doc"
+      ]
     }
   ]
 }
