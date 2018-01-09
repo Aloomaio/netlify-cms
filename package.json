@@ -1,6 +1,6 @@
 {
   "name": "alooma-netlify-cms",
-  "version": "0.7.5",
+  "version": "0.8.0",
   "description": "Netlify CMS lets content editors work on structured content stored in git",
   "main": "dist/cms.js",
   "scripts": {
