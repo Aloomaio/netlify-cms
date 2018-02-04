@@ -29,6 +29,11 @@ const WorkflowCard = ({
       <button className="nc-workflow-card-buttonDelete" onClick={onDelete}>
         {isModification ? 'Delete changes' : 'Delete new entry'}
       </button>
+      <button className='nc-workflow-card-buttonPublish'>
+        <a href={stagingURL} style="color: #ffffff;" target="_blank">
+          Staging
+        </a>
+      </button>
       <button
         className={c('nc-workflow-card-buttonPublish', {
           'nc-workflow-card-buttonPublishDisabled': !canPublish,
@@ -37,11 +42,6 @@ const WorkflowCard = ({
       >
         {isModification ? 'Publish changes' : 'Publish new entry'}
       </button>
-      <a href={stagingURL} target="_blank">
-        <button className='nc-workflow-card-buttonPublish'>
-          Staging
-        </button>
-      </a>
     </div>
   </div>
 );
