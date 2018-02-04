@@ -12,6 +12,7 @@ const WorkflowCard = ({
   body,
   isModification,
   editLink,
+  stagingUrl,
   timestamp,
   onDelete,
   canPublish,
@@ -36,6 +37,11 @@ const WorkflowCard = ({
       >
         {isModification ? 'Publish changes' : 'Publish new entry'}
       </button>
+      <a href={stagingURL} target="_blank">
+        <button className='nc-workflow-card-buttonPublish'>
+          Staging
+        </button>
+      </a>
     </div>
   </div>
 );

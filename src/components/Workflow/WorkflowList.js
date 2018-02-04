@@ -100,6 +100,7 @@ Please drag the card to the "Ready" column to enable publishing.`
             const ownStatus = entry.getIn(['metaData', 'status']);
             const collection = entry.getIn(['metaData', 'collection']);
             const isModification = entry.get('isModification');
+            const stagingURL = `https://alooma-staging-pr-${ entry.getIn(['metaData', 'pr','number']) }.herokuapp.com/${ entry.getIn(['metaData', 'collection']) }/${ entry.get('slug')}`;
             const canPublish = ownStatus === status.last() && !entry.get('isPersisting', false);
             return (
               <DragSource
@@ -119,6 +120,7 @@ Please drag the card to the "Ready" column to enable publishing.`
                     body={entry.getIn(['data', 'body'])}
                     isModification={isModification}
                     editLink={editLink}
+                    stagingURL={stagingURL}
                     timestamp={timestamp}
                     onDelete={this.requestDelete.bind(this, collection, slug, ownStatus)}
                     canPublish={canPublish}
