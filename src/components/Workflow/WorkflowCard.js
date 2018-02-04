@@ -24,13 +24,16 @@ const WorkflowCard = ({
       <h2 className="nc-workflow-card-title">{title}</h2>
       <div className="nc-workflow-card-date">{timestamp} by {authorLastChange}</div>
       <p className="nc-workflow-card-body">{body}</p>
+      <div>
+        <iframe src={stagingURL} class="ifrm"></iframe>
+      </div>
     </Link>
     <div className="nc-workflow-card-button-container">
       <button className="nc-workflow-card-buttonDelete" onClick={onDelete}>
         {isModification ? 'Delete changes' : 'Delete new entry'}
       </button>
       <button className='nc-workflow-card-buttonPublish'>
-        <a href={stagingURL} style="color: #ffffff;" target="_blank">
+        <a href={stagingURL} style={{color: '#ffffff'}} target="_blank">
           Staging
         </a>
       </button>
@@ -43,6 +46,7 @@ const WorkflowCard = ({
         {isModification ? 'Publish changes' : 'Publish new entry'}
       </button>
     </div>
+
   </div>
 );
 
