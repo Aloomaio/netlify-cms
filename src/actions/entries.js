@@ -249,34 +249,29 @@ export function loadEntries(collection, page = 0) {
     const provider = integration ? getIntegrationProvider(state.integrations, backend.getToken, integration) : backend;
     dispatch(entriesLoading(collection));
 
-
     provider.listEntries(collection, page).then(
       response => {
-
         const sortedEntries = response.entries.sort(function(a, b) {
           if (!a || !b){
             return 0;
           }
-          
           if (a.data && b.data){
-
+            if (a.slug && a.slug === "index"){
+              return -1;
+            }
+            if (b.slug && b.slug === "index"){
+              return 1;
+            }
             if (a.data.index){
               return parseFloat(a.data.index) - parseFloat(b.data.index);
             }
-
             if (a.data.date){
               return b.data.date - a.data.date;
             }
-          } else {
-            return 0;
           }
-
+          return 0;
         });
-
-
-
         dispatch(entriesLoaded(collection, sortedEntries, response.pagination))
-
       },
       error => dispatch(entriesFailed(collection, error))
     );

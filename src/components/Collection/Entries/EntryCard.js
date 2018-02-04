@@ -15,6 +15,7 @@ const EntryCard = ({
   viewStyle = VIEW_STYLE_LIST,
 }) => {
   const label = entry.get('label');
+  const isIndex = entry.get('slug') === "index";
   const title = label || entry.getIn(['data', inferedFields.titleField]);
   const path = `/collections/${collection.get('name')}/entries/${entry.get('slug')}`;
   let image = entry.getIn(['data', inferedFields.imageField]);
@@ -25,7 +26,10 @@ const EntryCard = ({
 
   if (viewStyle === VIEW_STYLE_LIST) {
     return (
-      <Link to={path} className="nc-entryListing-listCard">
+      <Link to={path} style={{display:"block",marginTop:"0px"}} className={ (isIndex ? 'nc-collectionPage-sidebarLink nc-collectionPage-sidebarLink-active' : '') + ' nc-entryListing-listCard' }>
+        {
+          isIndex ? <div>OVERVIEW PAGE</div> : null
+        }
         <h2 className="nc-entryListing-listCard-title">{title}</h2>
       </Link>
     );
@@ -33,7 +37,10 @@ const EntryCard = ({
 
   if (viewStyle === VIEW_STYLE_GRID) {
     return (
-      <Link to={path} className="nc-entryListing-gridCard">
+      <Link to={path} style={{display:"block",marginTop:"0px"}} className={ (isIndex ? 'nc-collectionPage-sidebarLink nc-collectionPage-sidebarLink-active' : '') + ' nc-entryListing-gridCard' }>
+        {
+          isIndex ? <div>OVERVIEW PAGE</div> : null
+        }
         <div className={c('nc-entryListing-cardBody', { 'nc-entryListing-cardBody-full': !image })}>
           <h2 className="nc-entryListing-cardHeading">{title}</h2>
         </div>
