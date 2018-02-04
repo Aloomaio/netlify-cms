@@ -12,3 +12,12 @@
   height:300px;
   border:0px;
 }
+
+.nc-controlPane-label-help{
+	font-weight: normal !important;
+	margin-left:5px !important;
+	background-color: #ececec !important;
+	font-size:10px !important;
+	padding-bottom: 3px !important;
+    text-transform: inherit !important;
+}

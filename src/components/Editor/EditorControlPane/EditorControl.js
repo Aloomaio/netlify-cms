@@ -29,6 +29,22 @@ export default class EditorControl extends React.Component {
     const fieldName = field.get('name');
     const metadata = fieldsMetaData && fieldsMetaData.get(fieldName);
     const errors = fieldsErrors && fieldsErrors.get(fieldName);
+    const renderHelp = () => {
+      const help = field.get('help');
+      if (help) {
+        return (
+          <label
+            className={c({
+              'nc-controlPane-label': true,
+              'nc-controlPane-label-help': true
+            })}
+            htmlFor={fieldName}
+          >
+            {help}
+          </label>
+        );
+      }
+    }
     return (
       <div className="nc-controlPane-control">
         <ul className="nc-controlPane-errors">
@@ -50,6 +66,9 @@ export default class EditorControl extends React.Component {
         >
           {field.get('label')}
         </label>
+
+        {renderHelp()}
+
         <Widget
           classNameWrapper={c({
             'nc-controlPane-widget': true,

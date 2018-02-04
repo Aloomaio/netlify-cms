@@ -20,26 +20,10 @@ const Entries = ({
   ];
 
   if (entries) {
-    const sortedEntries = entries.sort(function(a, b) {
-      if (!a || !b){
-        return 0;
-      }
-      console.log(a.data, b.data);
-      if (a.data && b.data){
-        if (a.data.index){
-          return parseFloat(a.data.index) - parseFloat(b.data.index);
-        }
-        if (a.data.date){
-          return b.data.date - a.data.date;
-        }
-      } else {
-        return 0;
-      }
-    });
     return (
       <EntryListing
         collections={collections}
-        entries={sortedEntries}
+        entries={entries}
         publicFolder={publicFolder}
         page={page}
         onPaginate={onPaginate}
