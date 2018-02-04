@@ -12,7 +12,7 @@ const WorkflowCard = ({
   body,
   isModification,
   editLink,
-  stagingUrl,
+  stagingURL,
   timestamp,
   onDelete,
   canPublish,

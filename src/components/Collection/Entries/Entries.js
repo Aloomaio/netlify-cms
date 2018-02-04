@@ -19,11 +19,28 @@ const Entries = ({
     'This might take several minutes',
   ];
 
+  const sortedEntries = entries.sort(function(a, b) {
+    if (!a || !b){
+      return 0;
+    }
+    console.log(a.data, b.data);
+    if (a.data && b.data){
+      if (a.data.index){
+        return parseFloat(a.data.index) - parseFloat(b.data.index);
+      }
+      if (a.data.date){
+        return b.data.date - a.data.date;
+      }
+    } else {
+      return 0;
+    }
+  });
+
   if (entries) {
     return (
       <EntryListing
         collections={collections}
-        entries={entries}
+        entries={sortedEntries}
         publicFolder={publicFolder}
         page={page}
         onPaginate={onPaginate}
