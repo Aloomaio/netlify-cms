@@ -299,13 +299,13 @@ export function loadEntries(collection, page = 0) {
         }
         return 0;
       });
-      return dispatch(entriesLoaded(
+      return dispatch(entriesLoaded( 
         collection,
         sortedEntries,
         response.pagination,
         addAppendActionsToCursor(response.cursor),
         append,
-      ))
+      ));
     })
     .catch(err => {
       dispatch(notifSend({
