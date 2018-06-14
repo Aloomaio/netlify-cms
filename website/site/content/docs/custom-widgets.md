@@ -1,6 +1,9 @@
 ---
-title: Custom Widgets
-position: 35
+title: Creating Custom Widgets
+weight: 35
+menu:
+  docs:
+    parent: guides
 ---
 # Custom Widgets
 
@@ -76,7 +79,7 @@ CMS.registerWidget('categories', CategoriesControl, CategoriesPreview);
 
 Register a block level component for the Markdown editor:
 
-```
+```js
 CMS.registerEditorComponent(definition)
 ```
 

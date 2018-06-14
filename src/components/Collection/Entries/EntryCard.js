@@ -7,11 +7,15 @@ import history from 'Routing/history';
 import { resolvePath } from 'Lib/pathHelper';
 import { VIEW_STYLE_LIST, VIEW_STYLE_GRID } from 'Constants/collectionViews';
 
+const CollectionLabel = ({ label }) =>
+  <h2 className="nc-entryListing-listCard-collection-label">{label}</h2>;
+
 const EntryCard = ({
   collection,
   entry,
   inferedFields,
   publicFolder,
+  collectionLabel,
   viewStyle = VIEW_STYLE_LIST,
 }) => {
   const label = entry.get('label');
@@ -26,11 +30,10 @@ const EntryCard = ({
 
   if (viewStyle === VIEW_STYLE_LIST) {
     return (
-      <Link to={path} style={{display:"block",marginTop:"0px"}} className={ (isIndex ? 'nc-collectionPage-sidebarLink nc-collectionPage-sidebarLink-active' : '') + ' nc-entryListing-listCard' }>
-        {
-          isIndex ? <div>OVERVIEW PAGE</div> : null
-        }
-        <h2 className="nc-entryListing-listCard-title">{title}</h2>
+      <Link to={path} className="nc-entryListing-listCard">
+        { collectionLabel ? <CollectionLabel label={collectionLabel}/> : null }
+        { isIndex ? <div>OVERVIEW PAGE</div> : null }
+        <h2 className="nc-entryListing-listCard-title">{ title }</h2>
       </Link>
     );
   }
@@ -42,6 +45,7 @@ const EntryCard = ({
           isIndex ? <div>OVERVIEW PAGE</div> : null
         }
         <div className={c('nc-entryListing-cardBody', { 'nc-entryListing-cardBody-full': !image })}>
+          { collectionLabel ? <CollectionLabel label={collectionLabel}/> : null }
           <h2 className="nc-entryListing-cardHeading">{title}</h2>
         </div>
         {

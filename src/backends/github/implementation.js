@@ -1,23 +1,30 @@
 import trimStart from 'lodash/trimStart';
 import semaphore from "semaphore";
-import { fileExtension } from 'Lib/pathHelper'
 import AuthenticationPage from "./AuthenticationPage";
 import API from "./API";
 
 const MAX_CONCURRENT_DOWNLOADS = 10;
 
 export default class GitHub {
-  constructor(config, proxied = false) {
+  constructor(config, options={}) {
     this.config = config;
+    this.options = {
+      proxied: false,
+      API: null,
+      ...options,
+    };
 
-    if (!proxied && config.getIn(["backend", "repo"]) == null) {
+    if (!this.options.proxied && config.getIn(["backend", "repo"]) == null) {
       throw new Error("The GitHub backend needs a \"repo\" in the backend configuration.");
     }
+
+    this.api = this.options.API || null;
 
     this.repo = config.getIn(["backend", "repo"], "");
     this.branch = config.getIn(["backend", "branch"], "master").trim();
     this.api_root = config.getIn(["backend", "api_root"], "https://api.github.com");
     this.token = '';
+    this.squash_merges = config.getIn(["backend", "squash_merges"]);
   }
 
   authComponent() {
@@ -30,7 +37,7 @@ export default class GitHub {
 
   authenticate(state) {
     this.token = state.token;
-    this.api = new API({ token: this.token, branch: this.branch, repo: this.repo, api_root: this.api_root });
+    this.api = new API({ token: this.token, branch: this.branch, repo: this.repo, api_root: this.api_root, squash_merges: this.squash_merges });
     return this.api.user().then(user =>
       this.api.hasWriteAccess().then((isCollab) => {
         // Unauthorized user
@@ -53,7 +60,7 @@ export default class GitHub {
 
   entriesByFolder(collection, extension) {
     return this.api.listFiles(collection.get("folder"))
-    .then(files => files.filter(file => fileExtension(file.name) === extension))
+    .then(files => files.filter(file => file.name.endsWith('.' + extension)))
     .then(this.fetchFiles);
   }
 
@@ -73,13 +80,15 @@ export default class GitHub {
         sem.take(() => this.api.readFile(file.path, file.sha).then((data) => {
           resolve({ file, data });
           sem.leave();
-        }).catch((err) => {
+        }).catch((err = true) => {
           sem.leave();
-          reject(err);
+          console.error(`failed to load file from GitHub: ${file.path}`);
+          resolve({ error: err });
         }))
       )));
     });
-    return Promise.all(promises);
+    return Promise.all(promises)
+      .then(loadedEntries => loadedEntries.filter(loadedEntry => !loadedEntry.error));
   };
 
   // Fetches a single entry.
@@ -92,7 +101,6 @@ export default class GitHub {
 
   getMedia() {
     return this.api.listFiles(this.config.get('media_folder'))
-      .then(files => files.filter(file => file.type === 'file'))
       .then(files => files.map(({ sha, name, size, download_url, path }) => {
         const url = new URL(download_url);
         if (url.pathname.match(/.svg$/)) {
@@ -106,38 +114,13 @@ export default class GitHub {
     return this.api.persistFiles(entry, mediaFiles, options);
   }
 
-  /**
-   * Pulls repo info from a `repos` response url property.
-   *
-   * Turns this:
-   * '<api_root>/repo/<username>/<repo>/...'
-   *
-   * Into this:
-   * '<username>/<repo>'
-   */
-  getRepoFromResponseUrl(url) {
-    return url
-
-      // -> '/repo/<username>/<repo>/...'
-      .slice(this.api_root.length)
-
-      // -> [ '', 'repo', '<username>', '<repo>', ... ]
-      .split('/')
-
-      // -> [ '<username>', '<repo>' ]
-      .slice(2, 4)
-
-      // -> '<username>/<repo>'
-      .join('/');
-  }
-
   async persistMedia(mediaFile, options = {}) {
     try {
       const response = await this.api.persistFiles(null, [mediaFile], options);
-      const repo = this.repo || this.getRepoFromResponseUrl(response.url);
-      const { value, size, path, fileObj } = mediaFile;
-      const url = `https://raw.githubusercontent.com/${repo}/${this.branch}${path}`;
-      return { id: response.sha, name: value, size: fileObj.size, url, path: trimStart(path, '/') };
+      
+      const { sha, value, size, path, fileObj } = mediaFile;
+      const url = URL.createObjectURL(fileObj);
+      return { id: sha, name: value, size: fileObj.size, url, path: trimStart(path, '/') };
     }
     catch(error) {
       console.error(error);

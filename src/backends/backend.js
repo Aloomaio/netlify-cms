@@ -1,4 +1,6 @@
-import { attempt, isError } from 'lodash';
+import { attempt, flatten, isError } from 'lodash';
+import { fromJS, Map } from 'immutable';
+import fuzzy from 'fuzzy';
 import { resolveFormat } from "Formats/formats";
 import { selectIntegration } from 'Reducers/integrations';
 import {
@@ -7,20 +9,25 @@ import {
   selectEntryPath,
   selectAllowNewEntries,
   selectAllowDeletion,
-  selectFolderEntryExtension
+  selectFolderEntryExtension,
+  selectIdentifier,
+  selectInferedField,
 } from "Reducers/collections";
 import { createEntry } from "ValueObjects/Entry";
 import { sanitizeSlug } from "Lib/urlHelper";
 import TestRepoBackend from "./test-repo/implementation";
 import GitHubBackend from "./github/implementation";
+import GitLabBackend from "./gitlab/implementation";
 import GitGatewayBackend from "./git-gateway/implementation";
 import { registerBackend, getBackend } from 'Lib/registry';
+import Cursor, { CURSOR_COMPATIBILITY_SYMBOL } from '../valueObjects/Cursor';
 
 /**
  * Register internal backends
  */
 registerBackend('git-gateway', GitGatewayBackend);
 registerBackend('github', GitHubBackend);
+registerBackend('gitlab', GitLabBackend);
 registerBackend('test-repo', TestRepoBackend);
 
 
@@ -41,23 +48,14 @@ class LocalStorageAuthStore {
   }
 }
 
-const slugFormatter = (template = "{{slug}}", entryData) => {
+const slugFormatter = (collection, entryData, slugConfig) => {
+  const template = collection.get('slug') || "{{slug}}";
   const date = new Date();
 
-  const getIdentifier = (entryData) => {
-    const validIdentifierFields = ["title", "path"];
-    const identifiers = validIdentifierFields.map((field) =>
-      entryData.find((_, key) => key.toLowerCase().trim() === field)
-    );
-
-    const identifier = identifiers.find(ident => ident !== undefined);
-
-    if (identifier === undefined) {
-      throw new Error("Collection must have a field name that is a valid entry identifier");
-    }
-
-    return identifier;
-  };
+  const identifier = entryData.get(selectIdentifier(collection));
+  if (!identifier) {
+    throw new Error("Collection must have a field name that is a valid entry identifier");
+  }
 
   const slug = template.replace(/\{\{([^\}]+)\}\}/g, (_, field) => {
     switch (field) {
@@ -67,8 +65,14 @@ const slugFormatter = (template = "{{slug}}", entryData) => {
         return (`0${ date.getMonth() + 1 }`).slice(-2);
       case "day":
         return (`0${ date.getDate() }`).slice(-2);
+      case "hour":
+        return (`0${ date.getHours() }`).slice(-2);
+      case "minute":
+        return (`0${ date.getMinutes() }`).slice(-2);
+      case "second":
+        return (`0${ date.getSeconds() }`).slice(-2);
       case "slug":
-        return getIdentifier(entryData).trim();
+        return identifier.trim();
       default:
         return entryData.get(field, "").trim();
     }
@@ -76,10 +80,47 @@ const slugFormatter = (template = "{{slug}}", entryData) => {
   // Convert slug to lower-case
   .toLocaleLowerCase()
 
-  // Replace periods and spaces with dashes.
-  .replace(/[.\s]/g, '-');
+  // Replace periods with dashes.
+  .replace(/[.]/g, '-');
 
-  return sanitizeSlug(slug);
+  return sanitizeSlug(slug, slugConfig);
+};
+
+const commitMessageTemplates = Map({
+  create: 'Create {{collection}} “{{slug}}”',
+  update: 'Update {{collection}} “{{slug}}”',
+  delete: 'Delete {{collection}} “{{slug}}”',
+  uploadMedia: 'Upload “{{path}}”',
+  deleteMedia: 'Delete “{{path}}”'
+});
+
+const commitMessageFormatter = (type, config, { slug, path, collection }) => {
+  const templates = commitMessageTemplates.merge(config.getIn(['backend', 'commit_messages'], Map()));
+  const messageTemplate = templates.get(type);
+  return messageTemplate.replace(/\{\{([^\}]+)\}\}/g, (_, variable) => {
+    switch (variable) {
+      case 'slug':
+        return slug;
+      case 'path':
+        return path;
+      case 'collection':
+        return collection.get('label');
+      default:
+        console.warn(`Ignoring unknown variable “${ variable }” in commit message template.`);
+        return '';
+    }
+  });
+}
+
+const extractSearchFields = searchFields => entry => searchFields.reduce((acc, field) => {
+  const f = entry.data[field];
+  return f ? `${acc} ${f}` : acc;
+}, "");
+
+const sortByScore = (a, b) => {
+  if (a.score > b.score) return -1;
+  if (a.score < b.score) return 1;
+  return 0;
 };
 
 class Backend {
@@ -128,30 +169,112 @@ class Backend {
 
   getToken = () => this.implementation.getToken();
 
+  processEntries(loadedEntries, collection) {
+    const collectionFilter = collection.get('filter');
+    const entries = loadedEntries.map(loadedEntry => createEntry(
+      collection.get("name"),
+      selectEntrySlug(collection, loadedEntry.file.path),
+      loadedEntry.file.path,
+      { raw: loadedEntry.data || '', label: loadedEntry.file.label }
+    ));
+    const formattedEntries = entries.map(this.entryWithFormat(collection));
+    // If this collection has a "filter" property, filter entries accordingly
+    const filteredEntries = collectionFilter
+      ? this.filterEntries({ entries: formattedEntries }, collectionFilter)
+      : formattedEntries;
+    return filteredEntries;
+  }
+
+
   listEntries(collection) {
     const listMethod = this.implementation[selectListMethod(collection)];
     const extension = selectFolderEntryExtension(collection);
-    const collectionFilter = collection.get('filter');
     return listMethod.call(this.implementation, collection, extension)
-      .then(loadedEntries => (
-        loadedEntries.map(loadedEntry => createEntry(
-          collection.get("name"),
-          selectEntrySlug(collection, loadedEntry.file.path),
-          loadedEntry.file.path,
-          { raw: loadedEntry.data || '', label: loadedEntry.file.label }
-        ))
-      ))
-      .then(entries => (
-        {
-          entries: entries.map(this.entryWithFormat(collection)),
-        }
-      ))
-      // If this collection has a "filter" property, filter entries accordingly
-      .then(loadedCollection => (
-        {
-          entries: collectionFilter ? this.filterEntries(loadedCollection, collectionFilter) : loadedCollection.entries
-        }
-      ));
+      .then(loadedEntries => ({
+        entries: this.processEntries(loadedEntries, collection),
+        /*
+          Wrap cursors so we can tell which collection the cursor is
+          from. This is done to prevent traverseCursor from requiring a
+          `collection` argument.
+        */
+        cursor: Cursor.create(loadedEntries[CURSOR_COMPATIBILITY_SYMBOL]).wrapData({
+          cursorType: "collectionEntries",
+          collection,
+        }),
+      }));
+  }
+
+  // The same as listEntries, except that if a cursor with the "next"
+  // action available is returned, it calls "next" on the cursor and
+  // repeats the process. Once there is no available "next" action, it
+  // returns all the collected entries. Used to retrieve all entries
+  // for local searches and queries.
+  async listAllEntries(collection) {
+    if (collection.get("folder") && this.implementation.allEntriesByFolder) {
+      const extension = selectFolderEntryExtension(collection);
+      return this.implementation.allEntriesByFolder(collection, extension)
+      .then(entries => this.processEntries(entries, collection));
+    }
+
+    const response = await this.listEntries(collection);
+    const { entries } = response;
+    let { cursor } = response;
+    while (cursor && cursor.actions.includes("next")) {
+      const { entries: newEntries, cursor: newCursor } = await this.traverseCursor(cursor, "next");
+      entries.push(...newEntries);
+      cursor = newCursor;
+    }
+    return entries;
+  }
+
+  async search(collections, searchTerm) {
+    // Perform a local search by requesting all entries. For each
+    // collection, load it, search, and call onCollectionResults with
+    // its results.
+    const errors = [];
+    const collectionEntriesRequests = collections.map(async collection => {
+      // TODO: pass search fields in as an argument
+      const searchFields = [
+        selectInferedField(collection, 'title'),
+        selectInferedField(collection, 'shortTitle'),
+        selectInferedField(collection, 'author'),
+      ];
+      const collectionEntries = await this.listAllEntries(collection);
+      return fuzzy.filter(searchTerm, collectionEntries, {
+        extract: extractSearchFields(searchFields),
+      });
+    }).map(p => p.catch(err => errors.push(err) && []));
+
+    const entries = await Promise.all(collectionEntriesRequests).then(arrs => flatten(arrs));
+
+    if (errors.length > 0) {
+      throw new Error({ message: "Errors ocurred while searching entries locally!", errors });
+    }
+    const hits = entries.filter(({ score }) => score > 5).sort(sortByScore).map(f => f.original);
+    return { entries: hits };
+  }
+
+  async query(collection, searchFields, searchTerm) {
+    const entries = await this.listAllEntries(collection);
+    const hits = fuzzy.filter(searchTerm, entries, { extract: extractSearchFields(searchFields) })
+      .filter(entry => entry.score > 5)
+      .sort(sortByScore)
+      .map(f => f.original);
+    return { query: searchTerm, hits };
+  }
+
+  traverseCursor(cursor, action) {
+    const [data, unwrappedCursor] = cursor.unwrapData();
+    // TODO: stop assuming all cursors are for collections
+    const collection = data.get("collection");
+    return this.implementation.traverseCursor(unwrappedCursor, action)
+      .then(async ({ entries, cursor: newCursor }) => ({
+        entries: this.processEntries(entries, collection),
+        cursor: Cursor.create(newCursor).wrapData({
+          cursorType: "collectionEntries",
+          collection,
+        }),
+      }));
   }
 
   getEntry(collection, slug) {
@@ -201,10 +324,13 @@ class Backend {
     ))
     .then(entries => ({
       pagination: 0,
-      entries: entries.map(entry => {
+      entries: entries.reduce((acc, entry) => {
         const collection = collections.get(entry.collection);
-        return this.entryWithFormat(collection)(entry);
-      }),
+        if (collection) {
+          acc.push(this.entryWithFormat(collection)(entry));
+        }
+        return acc;
+      }, []),
     }));
   }
 
@@ -239,7 +365,7 @@ class Backend {
       if (!selectAllowNewEntries(collection)) {
         throw (new Error("Not allowed to create new entries in this collection"));
       }
-      const slug = slugFormatter(collection.get("slug"), entryDraft.getIn(["entry", "data"]));
+      const slug = slugFormatter(collection, entryDraft.getIn(["entry", "data"]), config.get("slug"));
       const path = selectEntryPath(collection, slug);
       entryObj = {
         path,
@@ -256,8 +382,7 @@ class Backend {
       };
     }
 
-    const commitMessage = `${ (newEntry ? "Create " : "Update ") +
-          collection.get("label") } “${ entryObj.slug }”`;
+    const commitMessage = commitMessageFormatter(newEntry ? 'create' : 'update', config, { collection, slug: entryObj.slug, path: entryObj.path });
 
     const mode = config.get("publish_mode");
 
@@ -274,9 +399,9 @@ class Backend {
       .then(() => entryObj.slug);
   }
 
-  persistMedia(file) {
+  persistMedia(config, file) {
     const options = {
-      commitMessage: `Upload ${file.path}`,
+      commitMessage: commitMessageFormatter('uploadMedia', config, { path: file.path }),
     };
     return this.implementation.persistMedia(file, options);
   }
@@ -288,12 +413,12 @@ class Backend {
       throw (new Error("Not allowed to delete entries in this collection"));
     }
 
-    const commitMessage = `Delete ${ collection.get('label') } “${ slug }”`;
+    const commitMessage = commitMessageFormatter('delete', config, { collection, slug, path });
     return this.implementation.deleteFile(path, commitMessage);
   }
 
-  deleteMedia(path) {
-    const commitMessage = `Delete ${path}`;
+  deleteMedia(config, path) {
+    const commitMessage = commitMessageFormatter('deleteMedia', config, { path });
     return this.implementation.deleteFile(path, commitMessage);
   }
 

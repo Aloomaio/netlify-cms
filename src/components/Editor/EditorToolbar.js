@@ -50,7 +50,7 @@ export default class EditorToolbar extends React.Component {
   };
 
   renderSimplePublishControls = () => {
-    const { onPersist, onPersistAndNew, isPersisting, hasChanged, isNewEntry } = this.props;
+    const { collection, onPersist, onPersistAndNew, isPersisting, hasChanged, isNewEntry } = this.props;
     if (!isNewEntry && !hasChanged) {
       return <div className="nc-entryEditor-toolbar-statusPublished">Published</div>;
     }
@@ -64,7 +64,11 @@ export default class EditorToolbar extends React.Component {
           label={isPersisting ? 'Publishing...' : 'Publish'}
         >
           <DropdownItem label="Publish now" icon="arrow" iconDirection="right" onClick={onPersist}/>
-          <DropdownItem label="Publish and create new" icon="add" onClick={onPersistAndNew}/>
+          {
+            collection.get('create')
+              ? <DropdownItem label="Publish and create new" icon="add" onClick={onPersistAndNew}/>
+              : null
+          }
         </Dropdown>
       </div>
     );
@@ -89,6 +93,7 @@ export default class EditorToolbar extends React.Component {
 
     return [
         <button
+          key="save-button"
           className="nc-entryEditor-toolbar-saveButton"
           onClick={() => hasChanged && onPersist()}
         >
@@ -96,6 +101,7 @@ export default class EditorToolbar extends React.Component {
         </button>,
         isNewEntry || !deleteLabel ? null
             : <button
+                key="delete-button"
                 className="nc-entryEditor-toolbar-deleteButton"
                 onClick={hasUnpublishedChanges ? onDeleteUnpublishedChanges : onDelete}
               >
@@ -106,6 +112,7 @@ export default class EditorToolbar extends React.Component {
 
   renderWorkflowPublishControls = () => {
     const {
+      collection,
       onPersist,
       onPersistAndNew,
       isUpdatingStatus,
@@ -152,7 +159,11 @@ export default class EditorToolbar extends React.Component {
           label={isPublishing ? 'Publishing...' : 'Publish'}
         >
           <DropdownItem label="Publish now" icon="arrow" iconDirection="right" onClick={onPublish}/>
-          <DropdownItem label="Publish and create new" icon="add" onClick={onPublishAndNew}/>
+          {
+            collection.get('create')
+              ? <DropdownItem label="Publish and create new" icon="add" onClick={onPublishAndNew}/>
+              : null
+          }
         </Dropdown>
       ];
     }

@@ -1,12 +1,15 @@
-import { List } from 'immutable';
+import { fromJS, List, Set } from 'immutable';
 import { actions as notifActions } from 'redux-notifications';
 import { serializeValues } from 'Lib/serializeEntryValues';
 import { currentBackend } from 'Backends/backend';
 import { getIntegrationProvider } from 'Integrations';
 import { getAsset, selectIntegration } from 'Reducers';
 import { selectFields } from 'Reducers/collections';
+import { selectCollectionEntriesCursor } from 'Reducers/cursors';
+import Cursor from 'ValueObjects/Cursor';
 import { createEntry } from 'ValueObjects/Entry';
 import ValidationErrorTypes from 'Constants/validationErrorTypes';
+import isArray from 'lodash/isArray';
 
 const { notifSend } = notifActions;
 
@@ -80,13 +83,15 @@ export function entriesLoading(collection) {
   };
 }
 
-export function entriesLoaded(collection, entries, pagination) {
+export function entriesLoaded(collection, entries, pagination, cursor, append = true) {
   return {
     type: ENTRIES_SUCCESS,
     payload: {
       collection: collection.get('name'),
       entries,
       page: pagination,
+      cursor: Cursor.create(cursor),
+      append,
     },
   };
 }
@@ -238,6 +243,16 @@ export function loadEntry(collection, slug) {
   };
 }
 
+const appendActions = fromJS({
+  ["append_next"]: { action: "next", append: true },
+});
+
+const addAppendActionsToCursor = cursor => Cursor
+  .create(cursor)
+  .updateStore("actions", actions => actions.union(
+    appendActions.filter(v => actions.has(v.get("action"))).keySeq()
+  ));
+
 export function loadEntries(collection, page = 0) {
   return (dispatch, getState) => {
     if (collection.get('isFetching')) {
@@ -247,42 +262,110 @@ export function loadEntries(collection, page = 0) {
     const backend = currentBackend(state.config);
     const integration = selectIntegration(state, collection.get('name'), 'listEntries');
     const provider = integration ? getIntegrationProvider(state.integrations, backend.getToken, integration) : backend;
+    const append = !!(page && !isNaN(page) && page > 0);
     dispatch(entriesLoading(collection));
+    provider.listEntries(collection, page)
+    .then(response => ({
+      ...response,
 
-    provider.listEntries(collection, page).then(
-      response => {
-        const sortedEntries = response.entries.sort(function(a, b) {
-          if (!a || !b){
-            return 0;
-          }
-          if (a.data && b.data){
-            if (a.slug && a.slug === "index"){
-              return -1;
-            }
-            if (b.slug && b.slug === "index"){
-              return 1;
-            }
-            if (a.data.index){
-              return parseFloat(a.data.index) - parseFloat(b.data.index);
-            }
-            if (a.data.date){
-              return b.data.date - a.data.date;
-            }
-          }
+      // The only existing backend using the pagination system is the
+      // Algolia integration, which is also the only integration used
+      // to list entries. Thus, this checking for an integration can
+      // determine whether or not this is using the old integer-based
+      // pagination API. Other backends will simply store an empty
+      // cursor, which behaves identically to no cursor at all.
+      cursor: integration
+        ? Cursor.create({ actions: ["next"], meta: { usingOldPaginationAPI: true }, data: { nextPage: page + 1 } })
+        : Cursor.create(response.cursor),
+    }))
+    .then(response => {
+      const sortedEntries = response.entries.sort(function(a, b) {
+        if (!a || !b){
           return 0;
-        });
-        dispatch(entriesLoaded(collection, sortedEntries, response.pagination))
-      },
-      error => dispatch(entriesFailed(collection, error))
-    );
+        }
+        if (a.data && b.data){
+          if (a.slug && a.slug === "index"){
+            return -1;
+          }
+          if (b.slug && b.slug === "index"){
+            return 1;
+          }
+          if (a.data.index){
+            return parseFloat(a.data.index) - parseFloat(b.data.index);
+          }
+          if (a.data.date){
+            return b.data.date - a.data.date;
+          }
+        }
+        return 0;
+      });
+      dispatch(entriesLoaded( 
+        collection,
+        sortedEntries,
+        response.pagination,
+        addAppendActionsToCursor(response.cursor),
+        append,
+      ))
+    })
+    .catch(err => {
+      dispatch(notifSend({
+        message: `Failed to load entries: ${ err }`,
+        kind: 'danger',
+        dismissAfter: 8000,
+      }));
+      return Promise.reject(dispatch(entriesFailed(collection, err)));
   };
+}
+
+function traverseCursor(backend, cursor, action) {
+  if (!cursor.actions.has(action)) {
+    throw new Error(`The current cursor does not support the pagination action "${ action }".`);
+  }
+  return backend.traverseCursor(cursor, action);
+}
+
+export function traverseCollectionCursor(collection, action) {
+  return async (dispatch, getState) => {
+    const state = getState();
+    if (state.entries.getIn(['pages', `${ collection.get('name') }`, 'isFetching',])) {
+      return;
+    }
+    const backend = currentBackend(state.config);
+
+    const { action: realAction, append } = appendActions.has(action)
+      ? appendActions.get(action).toJS()
+      : { action, append: false };
+    const cursor = selectCollectionEntriesCursor(state.cursors, collection.get('name'));
+
+    // Handle cursors representing pages in the old, integer-based
+    // pagination API
+    if (cursor.meta.get("usingOldPaginationAPI", false)) {
+      return dispatch(loadEntries(collection, cursor.data.get("nextPage")));
+    }
+
+    try {
+      dispatch(entriesLoading(collection));
+      const { entries, cursor: newCursor } = await traverseCursor(backend, cursor, realAction);
+      // Pass null for the old pagination argument - this will
+      // eventually be removed.
+      return dispatch(entriesLoaded(collection, entries, null, addAppendActionsToCursor(newCursor), append));
+    } catch (err) {
+      console.error(err);
+      dispatch(notifSend({
+        message: `Failed to persist entry: ${ err }`,
+        kind: 'danger',
+        dismissAfter: 8000,
+      }));
+      return Promise.reject(dispatch(entriesFailed(collection, err)));
+    }
+  }
 }
 
 export function createEmptyDraft(collection) {
   return (dispatch) => {
     const dataFields = {};
     collection.get('fields', List()).forEach((field) => {
-      dataFields[field.get('name')] = field.get('default', null);
+      dataFields[field.get('name')] = field.get('default');
     });
     const newEntry = createEntry(collection.get('name'), '', '', { data: dataFields });
     dispatch(emptyDraftCreated(newEntry));

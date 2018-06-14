@@ -5,6 +5,7 @@ import Waypoint from 'react-waypoint';
 import { Map } from 'immutable';
 import { selectFields, selectInferedField } from 'Reducers/collections';
 import EntryCard from './EntryCard';
+import Cursor from 'ValueObjects/Cursor';
 
 export default class EntryListing extends React.Component {
   static propTypes = {
@@ -14,13 +15,14 @@ export default class EntryListing extends React.Component {
       ImmutablePropTypes.iterable,
     ]).isRequired,
     entries: ImmutablePropTypes.list,
-    onPaginate: PropTypes.func.isRequired,
-    page: PropTypes.number,
     viewStyle: PropTypes.string,
   };
 
   handleLoadMore = () => {
-    this.props.onPaginate(this.props.page + 1);
+    const { cursor, handleCursorActions } = this.props;
+    if (Cursor.create(cursor).actions.has("append_next")) {
+      handleCursorActions("append_next");
+    }
   };
 
   inferFields = collection => {
@@ -45,14 +47,15 @@ export default class EntryListing extends React.Component {
     return entries.map((entry, idx) => {
       const collectionName = entry.get('collection');
       const collection = collections.find(coll => coll.get('name') === collectionName);
+      const collectionLabel = collection.get('label');
       const inferedFields = this.inferFields(collection);
-      const entryCardProps = { collection, entry, inferedFields, publicFolder, key: idx };
-      return <EntryCard {...entryCardProps}/>;
+      const entryCardProps = { collection, entry, inferedFields, publicFolder, key: idx, collectionLabel };
+      return <EntryCard {...entryCardProps} />;
     });
   };
 
   render() {
-    const { collections, entries, publicFolder } = this.props;
+    const { collections } = this.props;
 
     return (
       <div>
