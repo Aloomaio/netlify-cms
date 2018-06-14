@@ -270,7 +270,6 @@ export default class API {
       subtree[filename] = file;
       file.file = true;
     });
-
     return fileTree;
   }
 
@@ -279,6 +278,9 @@ export default class API {
     const files = entry ? mediaFiles.concat(entry) : mediaFiles;
 
     files.forEach((file) => {
+      if (file.slug === "index") {
+        file.slug = "index-" + file.path.match(/\/([\w-]+)\/index\.md$/)[1];
+      }
       if (file.uploaded) { return; }
       uploadPromises.push(this.uploadBlob(file));
     });

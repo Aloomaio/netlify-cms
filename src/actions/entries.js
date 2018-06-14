@@ -299,7 +299,7 @@ export function loadEntries(collection, page = 0) {
         }
         return 0;
       });
-      dispatch(entriesLoaded( 
+      return dispatch(entriesLoaded(
         collection,
         sortedEntries,
         response.pagination,
@@ -314,6 +314,7 @@ export function loadEntries(collection, page = 0) {
         dismissAfter: 8000,
       }));
       return Promise.reject(dispatch(entriesFailed(collection, err)));
+    });
   };
 }
 

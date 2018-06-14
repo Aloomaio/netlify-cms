@@ -19,7 +19,7 @@ const EntryCard = ({
   viewStyle = VIEW_STYLE_LIST,
 }) => {
   const label = entry.get('label');
-  const isIndex = entry.get('slug') === "index";
+  const isIndex = entry.get('slug').indexOf("index") !== -1;
   const title = label || entry.getIn(['data', inferedFields.titleField]);
   const path = `/collections/${collection.get('name')}/entries/${entry.get('slug')}`;
   let image = entry.getIn(['data', inferedFields.imageField]);
